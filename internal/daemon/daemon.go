@@ -454,7 +454,7 @@ func (d *Daemon) ensureWitnessRunning(rigName string) {
 
 	// Create session in witness directory
 	// Use EnsureSessionFresh to handle zombie sessions that exist but have dead Claude
-	witnessDir := filepath.Join(d.config.TownRoot, rigName, "witness")
+	witnessDir := filepath.Join(d.config.TownRoot, "rigs", rigName, "witness")
 	if err := d.tmux.EnsureSessionFresh(sessionName, witnessDir); err != nil {
 		d.logger.Printf("Error creating witness session for %s: %v", rigName, err)
 		return
@@ -539,7 +539,7 @@ func (d *Daemon) ensureRefineryRunning(rigName string) {
 	d.logger.Printf("Refinery for %s not running per agent bead, starting...", rigName)
 
 	// Determine working directory
-	rigPath := filepath.Join(d.config.TownRoot, rigName)
+	rigPath := filepath.Join(d.config.TownRoot, "rigs", rigName)
 	refineryDir := filepath.Join(rigPath, "refinery", "rig")
 	if _, err := os.Stat(refineryDir); os.IsNotExist(err) {
 		// Fall back to rig path if refinery/rig doesn't exist
@@ -777,7 +777,7 @@ func (d *Daemon) checkPolecatSessionHealth() {
 // checkRigPolecatHealth checks polecat session health for a specific rig.
 func (d *Daemon) checkRigPolecatHealth(rigName string) {
 	// Get polecat directories for this rig
-	polecatsDir := filepath.Join(d.config.TownRoot, rigName, "polecats")
+	polecatsDir := filepath.Join(d.config.TownRoot, "rigs", rigName, "polecats")
 	entries, err := os.ReadDir(polecatsDir)
 	if err != nil {
 		return // No polecats directory - rig might not have polecats
@@ -841,7 +841,7 @@ func (d *Daemon) checkPolecatHealth(rigName, polecatName string) {
 // restartPolecatSession restarts a crashed polecat session.
 func (d *Daemon) restartPolecatSession(rigName, polecatName, sessionName string) error {
 	// Determine working directory
-	workDir := filepath.Join(d.config.TownRoot, rigName, "polecats", polecatName)
+	workDir := filepath.Join(d.config.TownRoot, "rigs", rigName, "polecats", polecatName)
 
 	// Verify the worktree exists
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
@@ -865,7 +865,7 @@ func (d *Daemon) restartPolecatSession(rigName, polecatName, sessionName string)
 	bdActor := fmt.Sprintf("%s/polecats/%s", rigName, polecatName)
 	_ = d.tmux.SetEnvironment(sessionName, "BD_ACTOR", bdActor)
 
-	beadsDir := filepath.Join(d.config.TownRoot, rigName, ".beads")
+	beadsDir := filepath.Join(d.config.TownRoot, "rigs", rigName, ".beads")
 	_ = d.tmux.SetEnvironment(sessionName, "BEADS_DIR", beadsDir)
 	_ = d.tmux.SetEnvironment(sessionName, "BEADS_NO_DAEMON", "1")
 	_ = d.tmux.SetEnvironment(sessionName, "BEADS_AGENT_NAME", fmt.Sprintf("%s/%s", rigName, polecatName))

@@ -361,11 +361,11 @@ func runRigAdd(cmd *cobra.Command, args []string) error {
 	// The conditional routing is necessary because initBeads creates the database at
 	// "<rig>/.beads", while repos with tracked beads have their database at mayor/rig/.beads.
 	if newRig.Config.Prefix != "" {
-		routePath := name
-		mayorRigBeads := filepath.Join(townRoot, name, "mayor", "rig", ".beads")
+		routePath := rig.RigsDir + "/" + name
+		mayorRigBeads := filepath.Join(townRoot, rig.RigsDir, name, "mayor", "rig", ".beads")
 		if _, err := os.Stat(mayorRigBeads); err == nil {
 			// Source repo has .beads/ tracked - route to mayor/rig
-			routePath = name + "/mayor/rig"
+			routePath = rig.RigsDir + "/" + name + "/mayor/rig"
 		}
 		route := beads.Route{
 			Prefix: newRig.Config.Prefix + "-",
@@ -381,7 +381,7 @@ func runRigAdd(cmd *cobra.Command, args []string) error {
 
 	// Read default branch from rig config
 	defaultBranch := "main"
-	if rigCfg, err := rig.LoadRigConfig(filepath.Join(townRoot, name)); err == nil && rigCfg.DefaultBranch != "" {
+	if rigCfg, err := rig.LoadRigConfig(filepath.Join(townRoot, rig.RigsDir, name)); err == nil && rigCfg.DefaultBranch != "" {
 		defaultBranch = rigCfg.DefaultBranch
 	}
 
@@ -400,7 +400,7 @@ func runRigAdd(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nNext steps:\n")
 	fmt.Printf("  gt crew add <name> --rig %s   # Create your personal workspace\n", name)
-	fmt.Printf("  cd %s/crew/<name>              # Start working\n", filepath.Join(townRoot, name))
+	fmt.Printf("  cd %s/crew/<name>              # Start working\n", filepath.Join(townRoot, rig.RigsDir, name))
 
 	return nil
 }
@@ -492,8 +492,8 @@ func runRigRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("%s Rig %s removed from registry\n", style.Success.Render("✓"), name)
-	fmt.Printf("\nNote: Files at %s were NOT deleted.\n", filepath.Join(townRoot, name))
-	fmt.Printf("To delete: %s\n", style.Dim.Render(fmt.Sprintf("rm -rf %s", filepath.Join(townRoot, name))))
+	fmt.Printf("\nNote: Files at %s were NOT deleted.\n", filepath.Join(townRoot, rig.RigsDir, name))
+	fmt.Printf("To delete: %s\n", style.Dim.Render(fmt.Sprintf("rm -rf %s", filepath.Join(townRoot, rig.RigsDir, name))))
 
 	return nil
 }

@@ -94,7 +94,7 @@ func (m *Manager) RigExists(name string) bool {
 
 // loadRig loads rig details from the filesystem.
 func (m *Manager) loadRig(name string, entry config.RigEntry) (*Rig, error) {
-	rigPath := filepath.Join(m.townRoot, name)
+	rigPath := RigPath(m.townRoot, name)
 
 	// Verify directory exists
 	info, err := os.Stat(rigPath)
@@ -108,6 +108,7 @@ func (m *Manager) loadRig(name string, entry config.RigEntry) (*Rig, error) {
 	rig := &Rig{
 		Name:      name,
 		Path:      rigPath,
+		TownRoot:  m.townRoot,
 		GitURL:    entry.GitURL,
 		LocalRepo: entry.LocalRepo,
 		Config:    entry.BeadsConfig,
@@ -216,7 +217,7 @@ func (m *Manager) AddRig(opts AddRigOptions) (*Rig, error) {
 		return nil, fmt.Errorf("rig name %q contains invalid characters (hyphens, dots, or spaces break agent ID parsing); use %q instead", opts.Name, sanitized)
 	}
 
-	rigPath := filepath.Join(m.townRoot, opts.Name)
+	rigPath := RigPath(m.townRoot, opts.Name)
 
 	// Check if directory already exists
 	if _, err := os.Stat(rigPath); err == nil {

@@ -35,7 +35,7 @@ func writeFakeBD(t *testing.T, script string) string {
 func createTestRig(t *testing.T, root, name string) {
 	t.Helper()
 
-	rigPath := filepath.Join(root, name)
+	rigPath := RigPath(root, name)
 	if err := os.MkdirAll(rigPath, 0755); err != nil {
 		t.Fatalf("mkdir rig: %v", err)
 	}
@@ -95,6 +95,54 @@ func TestDiscoverRigs(t *testing.T) {
 	}
 	if !rig.HasRefinery {
 		t.Error("expected HasRefinery = true")
+	}
+}
+
+// TestRigsInSubdirectory is a regression test ensuring rigs are created in the
+// rigs/ subdirectory of the town root, not at the town root level.
+// This prevents rigs from cluttering the town root alongside mayor/, plugins/, etc.
+// See: https://github.com/steveyegge/gastown/issues/74
+func TestRigsInSubdirectory(t *testing.T) {
+	root, rigsConfig := setupTestTown(t)
+
+	// Create test rig using the helper (which uses RigPath)
+	createTestRig(t, root, "testrig")
+	rigsConfig.Rigs["testrig"] = config.RigEntry{
+		GitURL: "git@github.com:test/testrig.git",
+	}
+
+	manager := NewManager(root, rigsConfig, git.NewGit(root))
+
+	// 1. Verify RigPath helper returns rigs/ subdirectory path
+	expectedPath := filepath.Join(root, RigsDir, "testrig")
+	actualPath := RigPath(root, "testrig")
+	if actualPath != expectedPath {
+		t.Errorf("RigPath() = %q, want %q", actualPath, expectedPath)
+	}
+
+	// 2. Verify rig is NOT at town root level (wrong location from issue #77)
+	wrongPath := filepath.Join(root, "testrig")
+	if _, err := os.Stat(wrongPath); err == nil {
+		t.Errorf("Rig exists at wrong path %q - should be in rigs/ subdirectory", wrongPath)
+	}
+
+	// 3. Verify rig IS in rigs/ subdirectory (correct location)
+	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+		t.Errorf("Rig does not exist at expected path %q", expectedPath)
+	}
+
+	// 4. Verify manager loads rig from rigs/ subdirectory
+	rig, err := manager.GetRig("testrig")
+	if err != nil {
+		t.Fatalf("GetRig: %v", err)
+	}
+	if rig.Path != expectedPath {
+		t.Errorf("rig.Path = %q, want %q", rig.Path, expectedPath)
+	}
+
+	// 5. Verify TownRoot is set correctly
+	if rig.TownRoot != root {
+		t.Errorf("rig.TownRoot = %q, want %q", rig.TownRoot, root)
 	}
 }
 
@@ -334,7 +382,7 @@ func TestInitAgentBeadsUsesTownBeadsDir(t *testing.T) {
 	// The Manager.townRoot determines where agent beads are created.
 	townRoot := t.TempDir()
 	townBeadsDir := filepath.Join(townRoot, ".beads")
-	rigPath := filepath.Join(townRoot, "testrip")
+	rigPath := RigPath(townRoot, "testrip")
 	mayorRigPath := filepath.Join(rigPath, "mayor", "rig")
 
 	if err := os.MkdirAll(townBeadsDir, 0755); err != nil {

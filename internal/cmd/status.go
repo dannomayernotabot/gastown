@@ -755,7 +755,7 @@ type agentDef struct {
 func discoverRigAgents(allSessions map[string]bool, r *rig.Rig, crews []string, allAgentBeads map[string]*beads.Issue, allHookBeads map[string]*beads.Issue, mailRouter *mail.Router, skipMail bool) []AgentRuntime {
 	// Build list of all agents to discover
 	var defs []agentDef
-	townRoot := filepath.Dir(r.Path)
+	townRoot := r.TownRoot
 	prefix := beads.GetPrefixForRig(townRoot, r.Name)
 
 	// Witness

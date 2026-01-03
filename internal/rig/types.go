@@ -5,13 +5,20 @@ import (
 	"github.com/steveyegge/gastown/internal/config"
 )
 
+// RigsDir is the subdirectory under town root where rigs are created.
+const RigsDir = "rigs"
+
 // Rig represents a managed repository in the workspace.
 type Rig struct {
 	// Name is the rig identifier (directory name).
 	Name string `json:"name"`
 
-	// Path is the absolute path to the rig directory.
+	// Path is the absolute path to the rig directory (e.g., ~/gt/rigs/myrig).
 	Path string `json:"path"`
+
+	// TownRoot is the absolute path to the town root directory (e.g., ~/gt).
+	// Use this instead of deriving from Path to avoid assumptions about directory structure.
+	TownRoot string `json:"town_root"`
 
 	// GitURL is the remote repository URL.
 	GitURL string `json:"git_url"`
@@ -78,4 +85,10 @@ func (r *Rig) BeadsPath() string {
 		return r.Path + "/mayor/rig"
 	}
 	return r.Path
+}
+
+// RigPath returns the path to a rig given the town root and rig name.
+// Rigs are stored in the rigs/ subdirectory of the town root.
+func RigPath(townRoot, rigName string) string {
+	return townRoot + "/" + RigsDir + "/" + rigName
 }

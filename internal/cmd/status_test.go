@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,7 +42,8 @@ func TestDiscoverRigAgents_UsesRigPrefix(t *testing.T) {
 
 	r := &rig.Rig{
 		Name:       "beads",
-		Path:       filepath.Join(townRoot, "beads"),
+		Path:       rig.RigPath(townRoot, "beads"),
+		TownRoot:   townRoot,
 		HasWitness: true,
 	}
 
