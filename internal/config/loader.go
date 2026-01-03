@@ -457,7 +457,7 @@ func SaveAccountsConfig(path string, config *AccountsConfig) error {
 		return fmt.Errorf("encoding accounts config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0644); err != nil { //nolint:gosec // G306: accounts config doesn't contain sensitive credentials
 		return fmt.Errorf("writing accounts config: %w", err)
 	}
 
@@ -569,7 +569,7 @@ func expandPath(path string) string {
 
 // LoadMessagingConfig loads and validates a messaging configuration file.
 func LoadMessagingConfig(path string) (*MessagingConfig, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is constructed internally, not from user input
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("%w: %s", ErrNotFound, path)
@@ -604,7 +604,7 @@ func SaveMessagingConfig(path string, config *MessagingConfig) error {
 		return fmt.Errorf("encoding messaging config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0644); err != nil { //nolint:gosec // G306: messaging config doesn't contain secrets
 		return fmt.Errorf("writing messaging config: %w", err)
 	}
 

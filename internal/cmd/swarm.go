@@ -866,8 +866,8 @@ func runSwarmCancel(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Close the swarm epic in beads with cancelled reason
-	closeArgs := []string{"close", swarmID, "--reason", "Swarm cancelled"}
+	// Close the swarm epic in beads with canceled reason
+	closeArgs := []string{"close", swarmID, "--reason", "Swarm canceled"}
 	if sessionID := os.Getenv("CLAUDE_SESSION_ID"); sessionID != "" {
 		closeArgs = append(closeArgs, "--session="+sessionID)
 	}
@@ -877,7 +877,7 @@ func runSwarmCancel(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("closing swarm: %w", err)
 	}
 
-	fmt.Printf("%s Swarm %s cancelled\n", style.Bold.Render("✓"), swarmID)
+	fmt.Printf("%s Swarm %s canceled\n", style.Bold.Render("✓"), swarmID)
 	return nil
 }
 

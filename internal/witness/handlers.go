@@ -335,7 +335,7 @@ func createCleanupWisp(workDir, polecatName, issueID, branch string) (string, er
 
 	labels := strings.Join(CleanupWispLabels(polecatName, "pending"), ",")
 
-	cmd := exec.Command("bd", "create",
+	cmd := exec.Command("bd", "create", //nolint:gosec // G204: args are constructed internally
 		"--wisp",
 		"--title", title,
 		"--description", description,
@@ -380,7 +380,7 @@ func createSwarmWisp(workDir string, payload *SwarmStartPayload) (string, error)
 
 	labels := strings.Join(SwarmWispLabels(payload.SwarmID, payload.Total, 0, payload.StartedAt), ",")
 
-	cmd := exec.Command("bd", "create",
+	cmd := exec.Command("bd", "create", //nolint:gosec // G204: args are constructed internally
 		"--wisp",
 		"--title", title,
 		"--description", description,
@@ -475,7 +475,7 @@ func getCleanupStatus(workDir, rigName, polecatName string) string {
 	prefix := beads.GetPrefixForRig(townRoot, rigName)
 	agentBeadID := beads.PolecatBeadIDWithPrefix(prefix, rigName, polecatName)
 
-	cmd := exec.Command("bd", "show", agentBeadID, "--json")
+	cmd := exec.Command("bd", "show", agentBeadID, "--json") //nolint:gosec // G204: agentBeadID is validated internally
 	cmd.Dir = workDir
 
 	var stdout, stderr bytes.Buffer
