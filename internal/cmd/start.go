@@ -179,14 +179,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 // startCoreAgents starts Mayor and Deacon sessions.
 func startCoreAgents(t *tmux.Tmux) error {
 	// Get session names
-	mayorSession, err := getMayorSessionName()
-	if err != nil {
-		return fmt.Errorf("getting Mayor session name: %w", err)
-	}
-	deaconSession, err := getDeaconSessionName()
-	if err != nil {
-		return fmt.Errorf("getting Deacon session name: %w", err)
-	}
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
 
 	// Start Mayor first (so Deacon sees it as up)
 	mayorRunning, _ := t.HasSession(mayorSession)
@@ -391,8 +385,8 @@ func runShutdown(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get session names for categorization
-	mayorSession, _ := getMayorSessionName()
-	deaconSession, _ := getDeaconSessionName()
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
 	toStop, preserved := categorizeSessions(sessions, mayorSession, deaconSession)
 
 	if len(toStop) == 0 {
@@ -515,8 +509,8 @@ func runGracefulShutdown(t *tmux.Tmux, gtSessions []string, townRoot string) err
 
 	// Phase 4: Kill sessions in correct order
 	fmt.Printf("\nPhase 4: Terminating sessions...\n")
-	mayorSession, _ := getMayorSessionName()
-	deaconSession, _ := getDeaconSessionName()
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
 	stopped := killSessionsInOrder(t, gtSessions, mayorSession, deaconSession)
 
 	// Phase 5: Cleanup polecat worktrees and branches
@@ -533,8 +527,8 @@ func runGracefulShutdown(t *tmux.Tmux, gtSessions []string, townRoot string) err
 func runImmediateShutdown(t *tmux.Tmux, gtSessions []string, townRoot string) error {
 	fmt.Println("Shutting down Gas Town...")
 
-	mayorSession, _ := getMayorSessionName()
-	deaconSession, _ := getDeaconSessionName()
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
 	stopped := killSessionsInOrder(t, gtSessions, mayorSession, deaconSession)
 
 	// Cleanup polecat worktrees and branches

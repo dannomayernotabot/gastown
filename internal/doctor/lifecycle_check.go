@@ -227,8 +227,8 @@ func (c *LifecycleHygieneCheck) findStateFiles(townRoot string) []stateFileInfo 
 }
 
 // isSessionHealthy checks if the tmux session for this identity exists and is running.
-func (c *LifecycleHygieneCheck) isSessionHealthy(identity, townRoot string) bool {
-	sessionName := identityToSessionName(identity, townRoot)
+func (c *LifecycleHygieneCheck) isSessionHealthy(identity, _ string) bool {
+	sessionName := identityToSessionName(identity)
 	if sessionName == "" {
 		return false
 	}
@@ -239,7 +239,7 @@ func (c *LifecycleHygieneCheck) isSessionHealthy(identity, townRoot string) bool
 }
 
 // identityToSessionName converts an identity to its tmux session name.
-func identityToSessionName(identity, townRoot string) string {
+func identityToSessionName(identity string) string {
 	switch identity {
 	case "mayor":
 		return session.MayorSessionName()

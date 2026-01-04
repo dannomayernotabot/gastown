@@ -89,8 +89,8 @@ func parsePolecatSessionName(sessionName string) (rigName, polecatName string, o
 	}
 
 	// Exclude town-level sessions by exact match
-	mayorSession, _ := getMayorSessionName()
-	deaconSession, _ := getDeaconSessionName()
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
 	if sessionName == mayorSession || sessionName == deaconSession {
 		return "", "", false
 	}

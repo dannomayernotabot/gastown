@@ -230,18 +230,10 @@ func resolveRoleToSession(role string) (string, error) {
 
 	switch strings.ToLower(role) {
 	case "mayor", "may":
-		mayorSession, err := getMayorSessionName()
-		if err != nil {
-			return "", fmt.Errorf("cannot determine mayor session name: %w", err)
-		}
-		return mayorSession, nil
+		return getMayorSessionName(), nil
 
 	case "deacon", "dea":
-		deaconSession, err := getDeaconSessionName()
-		if err != nil {
-			return "", fmt.Errorf("cannot determine deacon session name: %w", err)
-		}
-		return deaconSession, nil
+		return getDeaconSessionName(), nil
 
 	case "crew":
 		// Try to get rig and crew name from environment or cwd
@@ -369,8 +361,8 @@ func buildRestartCommand(sessionName string) (string, error) {
 // This is the canonical home for each role type.
 func sessionWorkDir(sessionName, townRoot string) (string, error) {
 	// Get session names for comparison
-	mayorSession, _ := getMayorSessionName()
-	deaconSession, _ := getDeaconSessionName()
+	mayorSession := getMayorSessionName()
+	deaconSession := getDeaconSessionName()
 
 	switch {
 	case sessionName == mayorSession:
