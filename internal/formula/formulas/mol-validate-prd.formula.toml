@@ -1,0 +1,299 @@
+description = """
+Validate a PRD's Success Criteria against the live application.
+
+This formula guides a polecat through end-to-end validation of a PRD's success
+criteria. It reads the PRD, starts the application stack, walks through each
+criterion using Playwright MCP for browser automation and screenshots, compiles
+a pass/fail report, and either closes (all pass) or creates fix beads + a new
+validation bead (self-terminating loop).
+
+## Polecat Contract
+
+You are a validation agent. You:
+1. Read the PRD's Success Criteria and How to Validate sections
+2. Start the application stack
+3. For each criterion: execute the validation steps, screenshot evidence
+4. If ALL pass: close — you're done, epic is validated
+5. If ANY fail: create fix beads, add to convoy, create new validation bead, close
+
+**Self-terminating loop:** Each validation bead either passes (terminates) or
+creates fixes + a new validation bead (continues). The loop ends when all
+criteria pass. There is no infinite loop because fix beads address the failures,
+so each iteration should have fewer failures.
+
+**You do NOT:**
+- Fix the failures yourself (create fix beads for polecats to handle)
+- Skip criteria (every SC must be validated)
+- Close without a report (always compile evidence)
+
+## Variables
+
+| Variable | Source | Description |
+|----------|--------|-------------|
+| issue | hook_bead | The validation bead ID |
+| prd_path | bead description | Path to the PRD document |
+| epic_id | bead parent | The epic these beads belong to |
+| convoy_id | bead metadata or gt convoy list | Active convoy to add fix beads to |
+
+## Failure Modes
+
+| Situation | Action |
+|-----------|--------|
+| Stack won't start | Mail Witness, mark stuck |
+| Playwright MCP unavailable | Fall back to manual curl/API checks where possible, note in report |
+| PRD has no Success Criteria | Mail Witness — PRD needs updating first |
+| Can't determine pass/fail | Mark criterion as INCONCLUSIVE, note why in report |
+| Context filling | Use gt handoff to cycle to fresh session |"""
+formula = "mol-validate-prd"
+version = 1
+
+[[steps]]
+id = "load-prd"
+title = "Load PRD and extract validation criteria"
+description = """
+Read the PRD and extract the Success Criteria and How to Validate sections.
+
+**1. Prime your environment:**
+```bash
+gt prime
+bd prime
+```
+
+**2. Read your assignment:**
+```bash
+gt hook
+bd show {{issue}}
+```
+
+The bead description contains the PRD path and epic context.
+
+**3. Read the PRD:**
+Find and read the PRD document. Extract:
+- All numbered Success Criteria (SC1, SC2, etc.)
+- The corresponding How to Validate steps for each criterion
+- Any prerequisites or setup instructions
+
+**4. Create a validation checklist:**
+Write a structured checklist mapping each SC to its validation steps.
+Save this to a local file for reference:
+```
+SC1: <criterion> → <validation steps> → PENDING
+SC2: <criterion> → <validation steps> → PENDING
+...
+```
+
+**5. Identify the epic and convoy:**
+```bash
+bd show {{issue}} --json   # Get parent epic ID
+gt convoy list             # Find the active convoy
+```
+
+**Exit criteria:** You have a complete list of all SCs with their validation
+procedures and know the epic ID and convoy ID."""
+
+[[steps]]
+id = "start-stack"
+title = "Start the application stack"
+needs = ["load-prd"]
+description = """
+Boot the services needed to validate the feature.
+
+**1. Check what's already running:**
+```bash
+# Check for running dev servers, backends, workers
+lsof -i :4200 2>/dev/null   # Frontend dev server
+lsof -i :8080 2>/dev/null   # Backend/monolith
+lsof -i :7233 2>/dev/null   # Temporal
+```
+
+**2. Start any missing services:**
+Follow the project's standard startup procedure. Typically:
+```bash
+# Frontend
+npm run dev &
+
+# Backend (if needed)
+# Check project docs for backend start command
+
+# Temporal (if workflows are part of validation)
+# Check if Temporal dev server is needed
+```
+
+**3. Wait for services to be healthy:**
+```bash
+# Verify frontend is serving
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4200
+
+# Verify backend health endpoint
+curl -s http://localhost:8080/health
+```
+
+**4. Verify Playwright MCP is available:**
+Check that Playwright MCP tools are loaded in your session. If not available,
+note this — you can still validate via API calls and curl, but screenshots
+will be limited.
+
+**Exit criteria:** All required services are running and responding."""
+
+[[steps]]
+id = "validate-criteria"
+title = "Execute validation for each Success Criterion"
+needs = ["start-stack"]
+description = """
+Walk through each SC and validate it against the live application.
+
+**For each Success Criterion:**
+
+1. **Navigate** to the relevant UI or API endpoint
+2. **Execute** the validation steps from "How to Validate"
+3. **Screenshot** the result (using Playwright MCP browser tools)
+4. **Record** the outcome: PASS, FAIL, or INCONCLUSIVE
+
+**Using Playwright MCP for browser validation:**
+- Navigate to URLs, click elements, fill forms
+- Take screenshots at each validation step
+- Check for expected UI elements, text, states
+
+**Using API/CLI for backend validation:**
+- GraphQL queries to verify data state
+- Temporal workflow status checks
+- Database state verification
+
+**For each criterion, document:**
+- What you tested
+- What you observed
+- Screenshot path(s)
+- PASS / FAIL / INCONCLUSIVE
+- If FAIL: what specifically is wrong and what needs to be fixed
+
+**Important:** Test EVERY criterion. Do not skip any. If a criterion is
+blocked by another failure, note it as BLOCKED (counts as FAIL for loop logic).
+
+**Exit criteria:** Every SC has been tested and has a PASS/FAIL/INCONCLUSIVE result."""
+
+[[steps]]
+id = "compile-report"
+title = "Compile validation report"
+needs = ["validate-criteria"]
+description = """
+Create a structured validation report.
+
+**1. Compile results into a report:**
+
+Format:
+```
+# PRD Validation Report
+Epic: <epic-id>
+Date: <date>
+Validator: <your polecat name>
+
+## Results Summary
+- Total criteria: N
+- Passed: X
+- Failed: Y
+- Inconclusive: Z
+
+## Detailed Results
+
+### SC1: <criterion>
+Status: PASS/FAIL/INCONCLUSIVE
+Evidence: <screenshot path or observation>
+Notes: <any details>
+
+### SC2: ...
+(repeat for all criteria)
+
+## Failed Criteria (requires fix beads)
+- SC3: <what's wrong, what needs to be fixed>
+- SC7: <what's wrong, what needs to be fixed>
+```
+
+**2. Save the report:**
+Save to the bead's notes:
+```bash
+bd update {{issue}} --notes "<report content>"
+```
+
+**3. Determine next action:**
+- If ALL criteria PASS → proceed to close step (no fix beads needed)
+- If ANY criteria FAIL → proceed to create-fix-beads step
+
+**Exit criteria:** Report is compiled and saved. You know whether to create fix beads or close."""
+
+[[steps]]
+id = "create-fix-beads"
+title = "Create fix beads for failed criteria (if any failures)"
+needs = ["compile-report"]
+description = """
+**SKIP this step if all criteria passed.** Go directly to the close step.
+
+For each FAILED criterion, create a fix bead:
+
+**1. Create a fix bead per failure (or group related failures):**
+```bash
+bd create task "<SC#>: <description of what needs to be fixed>" \
+  --rig <rig> \
+  --parent <epic-id> \
+  --description "<detailed description of the failure and what the fix should do>" \
+  -p 2
+```
+
+**2. Set up dependencies if fixes have ordering requirements:**
+```bash
+bd dep <blocker-id> --blocks <blocked-id>
+```
+
+**3. Add fix beads to the active convoy:**
+```bash
+gt convoy add <convoy-id> <fix-bead-1> <fix-bead-2> ...
+```
+
+**4. Create a NEW validation bead that depends on ALL fix beads:**
+```bash
+bd create task "Validation: Re-run PRD success criteria after fixes" \
+  --rig <rig> \
+  --parent <epic-id> \
+  --description "Re-run mol-validate-prd formula against PRD. Path: <prd-path>. Previous validation found N failures, fix beads created. Re-validate all criteria." \
+  -p 2
+```
+
+Then set dependencies so the new validation bead is blocked by all fix beads:
+```bash
+bd dep <fix-bead-1> --blocks <new-validation-bead>
+bd dep <fix-bead-2> --blocks <new-validation-bead>
+...
+```
+
+And add it to the convoy:
+```bash
+gt convoy add <convoy-id> <new-validation-bead>
+```
+
+**5. The daemon will auto-dispatch fix beads and the next validation bead.**
+You don't need to sling anything manually.
+
+**Exit criteria:** Fix beads created, new validation bead created and blocked by fixes,
+all added to convoy."""
+
+[[steps]]
+id = "close"
+title = "Close validation bead"
+needs = ["compile-report"]
+description = """
+Close this validation bead.
+
+**If all criteria passed:**
+```bash
+gt done
+```
+The epic is validated. No more validation beads will be created.
+The convoy will auto-close when all tracked beads complete.
+
+**If fix beads were created (previous step):**
+```bash
+gt done
+```
+This validation bead is done — the NEW validation bead (created in previous step)
+will re-run after fixes land. The loop continues automatically.
+
+**Exit criteria:** Bead is closed via gt done."""
