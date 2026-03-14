@@ -47,6 +47,11 @@ so each iteration should have fewer failures.
 formula = "mol-validate-prd"
 version = 1
 
+[vars]
+[vars.issue]
+description = "The validation bead ID"
+required = true
+
 [[steps]]
 id = "load-prd"
 title = "Load PRD and extract validation criteria"
