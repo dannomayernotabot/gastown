@@ -70,7 +70,7 @@ spawning → working → mr_submitted → awaiting_verdict
 | Unsure what to do | Mail Witness, don't guess |
 | Max fix attempts exceeded | Mail Witness, enter stuck state |"""
 formula = "mol-polecat-work"
-version = 9
+version = 10
 
 [[steps]]
 id = "load-context"
@@ -380,9 +380,96 @@ If lint_command is set:
 **Exit criteria:** Code compiles. Obvious regressions caught. Ready to submit."""
 
 [[steps]]
+id = "verify-dev-stack"
+title = "Verify change against running dev stack"
+needs = ["build-check"]
+description = """
+Verify your change actually works in a running dev stack before committing.
+This closes the gap where polecats write code but never see it run.
+
+**Skip conditions:** Skip this step if:
+- The task is report-only (no code changes)
+- The project has no runnable dev stack (pure library, CLI tool with no server)
+- The change is purely internal (config, docs, test-only changes)
+
+If skipping, note the reason and proceed to the next step.
+
+**1. Check if dev stack is already running:**
+```bash
+# Check common dev server ports (adjust for your project)
+lsof -iTCP -sTCP:LISTEN -P 2>/dev/null | grep -E ':(3000|3001|4000|5173|8080|8081)' || echo "No dev stack detected"
+```
+
+**2. Start the dev stack if not running:**
+
+Check CLAUDE.md or AGENTS.md for the project's dev server command. Common patterns:
+```bash
+# Example commands (use the project's actual command):
+# pnpm dev &
+# go run ./cmd/server &
+# npm start &
+```
+
+Start the dev server in the background and wait for it to be ready:
+```bash
+# Start in background, wait for port to open
+# <dev-command> &
+# DEV_PID=$!
+# timeout 60 bash -c 'until lsof -iTCP:PORT -sTCP:LISTEN -P 2>/dev/null; do sleep 2; done'
+```
+
+**3. Verify your change:**
+
+Choose the verification method based on what you changed:
+
+**For API/backend changes:**
+```bash
+# Hit the relevant endpoint
+curl -s http://localhost:<port>/<endpoint> | head -50
+# Or run a specific integration test against the running server
+```
+
+**For UI/frontend changes:**
+If Playwright MCP is available, take a screenshot:
+```bash
+# Use Playwright MCP to navigate and screenshot
+# Or use curl to verify the page loads without errors
+curl -s http://localhost:<port>/ | grep -c "error" && echo "ERRORS FOUND" || echo "Page loads OK"
+```
+
+**For CLI/library changes:**
+```bash
+# Run the CLI with your changes
+# ./my-cli --help
+# Or import the library in a test script
+```
+
+**4. Record evidence in bead notes:**
+```bash
+bd update {{issue}} --notes "Dev stack verification:
+- Stack running on port <PORT>
+- Tested: <what you verified>
+- Result: <what you observed>
+- Evidence: <output snippet or screenshot reference>"
+```
+
+**5. Clean up:**
+If you started the dev stack, stop it:
+```bash
+# kill $DEV_PID 2>/dev/null || true
+```
+
+**If verification reveals issues:**
+- Fix them now, before committing
+- Re-run the build check if you made changes
+- Update the bead notes with what you fixed
+
+**Exit criteria:** Dev stack verification evidence recorded in bead notes, or skip reason documented."""
+
+[[steps]]
 id = "commit-changes"
 title = "Commit all implementation changes"
-needs = ["build-check"]
+needs = ["verify-dev-stack"]
 description = """
 Ensure ALL implementation work is committed before cleanup.
 
