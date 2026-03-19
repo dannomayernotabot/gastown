@@ -1063,6 +1063,19 @@ func DetectZombiePolecats(bd *BdCli, workDir, rigName string, router *mail.Route
 		// across helper functions. The snapshot is passed to sub-functions.
 		snap := fetchAgentBeadSnapshot(bd, workDir, agentBeadID)
 
+		// gt-0vt1r: Verify hook_bead is still active. The agent bead's hook_bead
+		// DB column is set at spawn time but never cleared (ClearHookBead was
+		// removed per hq-l6mm5). If the referenced bead is no longer hooked or
+		// in_progress, the hook_bead is stale and must not trigger zombie detection.
+		// Without this, patrol scan kills polecats whose work was already recovered
+		// by resetAbandonedBead (bead reset to open), causing respawn storms.
+		if snap != nil && snap.HookBead != "" {
+			hookStatus := getBeadStatus(bd, workDir, snap.HookBead)
+			if hookStatus != "hooked" && hookStatus != "in_progress" {
+				snap.HookBead = ""
+			}
+		}
+
 		var labels []string
 		if snap != nil {
 			labels = snap.Labels

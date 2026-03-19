@@ -418,7 +418,13 @@ func (b *Beads) ResetAgentBeadForReuse(id, reason string) error {
 		return fmt.Errorf("resetting agent bead fields: %w", err)
 	}
 
-	// Hook slot no longer maintained (hq-l6mm5) — no need to clear.
+	// gt-0vt1r: Clear hook_bead DB column. Although hq-l6mm5 removed
+	// ClearHookBead, the slot IS still set at spawn time (per hq-gfg).
+	// Without clearing here, the stale DB column causes patrol scan to
+	// misclassify nuked polecats as zombies with active work.
+	if _, slotErr := target.run("slot", "set", id, "hook", ""); slotErr != nil {
+		// Non-fatal: patrol scan verification (gt-0vt1r) catches stale hooks
+	}
 
 	return nil
 }

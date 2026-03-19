@@ -1358,7 +1358,15 @@ func updateAgentStateOnDone(cwd, townRoot, exitType, issueID string) {
 	}
 
 doneStateUpdate:
-	// No ClearHookBead call needed — agent bead hook slot is no longer maintained (hq-l6mm5).
+	// gt-0vt1r: Clear the hook_bead DB column. Although hq-l6mm5 removed
+	// ClearHookBead, the slot IS still set at spawn time (per hq-gfg).
+	// Without clearing, patrol scan reads stale hook_bead and misclassifies
+	// idle polecats as zombies, causing respawn storms.
+	if agentBeadID != "" {
+		if _, err := bd.Run("slot", "set", agentBeadID, "hook", ""); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: couldn't clear hook slot on %s: %v\n", agentBeadID, err)
+		}
+	}
 
 	// Purge closed ephemeral beads (wisps) accumulated during this and prior sessions.
 	// Without this, closed wisps from mol-polecat-work steps, mol-witness-patrol cycles,
