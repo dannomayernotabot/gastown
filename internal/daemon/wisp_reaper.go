@@ -19,7 +19,7 @@ const (
 	// Closed wisps older than this are permanently deleted. Formula var: purge_age.
 	defaultWispDeleteAge = 3 * 24 * time.Hour
 	// Alert threshold: if open wisp count exceeds this, the Dog should escalate.
-	wispAlertThreshold = 500
+	wispAlertThreshold = 1000
 	// Closed mail older than this is permanently deleted. Formula var: mail_delete_age.
 	defaultMailDeleteAge = 3 * 24 * time.Hour
 	// Issues stale longer than this are auto-closed. Formula var: stale_issue_age.
