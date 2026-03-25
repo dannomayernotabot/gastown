@@ -864,6 +864,100 @@ func TestCheckFormulaHealth_MixedScenarios(t *testing.T) {
 	}
 }
 
+// TestGetFormulaContent verifies the fallback from embedded to disk search paths.
+func TestGetFormulaContent(t *testing.T) {
+	// Embedded formula should be found without search dirs.
+	content, err := GetFormulaContent("mol-polecat-work", nil)
+	if err != nil {
+		t.Fatalf("GetFormulaContent(embedded) error: %v", err)
+	}
+	if len(content) == 0 {
+		t.Error("expected non-empty content for embedded formula")
+	}
+
+	// Custom formula on disk (not embedded) should be found via search dirs.
+	tmpDir := t.TempDir()
+	customName := "mol-custom-test"
+	customContent := []byte(`formula = "mol-custom-test"
+type = "workflow"
+description = "test custom formula"
+
+[[steps]]
+id = "step-one"
+title = "Do the thing"
+description = "Custom step"
+`)
+	if err := os.WriteFile(filepath.Join(tmpDir, customName+".formula.toml"), customContent, 0644); err != nil {
+		t.Fatalf("writing custom formula: %v", err)
+	}
+
+	got, err := GetFormulaContent(customName, []string{tmpDir})
+	if err != nil {
+		t.Fatalf("GetFormulaContent(custom on disk) error: %v", err)
+	}
+	if string(got) != string(customContent) {
+		t.Errorf("custom formula content mismatch:\ngot:  %s\nwant: %s", got, customContent)
+	}
+
+	// Non-existent formula should fail.
+	_, err = GetFormulaContent("nonexistent-formula", []string{tmpDir})
+	if err == nil {
+		t.Error("expected error for non-existent formula")
+	}
+
+	// Embedded takes precedence over disk.
+	// Write a file with an embedded formula's name but different content.
+	fakeContent := []byte("fake content")
+	if err := os.WriteFile(filepath.Join(tmpDir, "mol-polecat-work.formula.toml"), fakeContent, 0644); err != nil {
+		t.Fatalf("writing fake formula: %v", err)
+	}
+	got, err = GetFormulaContent("mol-polecat-work", []string{tmpDir})
+	if err != nil {
+		t.Fatalf("GetFormulaContent(embedded precedence) error: %v", err)
+	}
+	// Should get the embedded content, not the fake disk content.
+	if string(got) == string(fakeContent) {
+		t.Error("expected embedded content to take precedence over disk")
+	}
+}
+
+// TestFormulaSearchDirs verifies the search path construction.
+func TestFormulaSearchDirs(t *testing.T) {
+	// With town root, should include town-level path.
+	dirs := FormulaSearchDirs("/tmp/mytown")
+	if len(dirs) < 1 {
+		t.Fatal("expected at least 1 search dir")
+	}
+	if dirs[0] != "/tmp/mytown/.beads/formulas" {
+		t.Errorf("first dir = %q, want /tmp/mytown/.beads/formulas", dirs[0])
+	}
+
+	// Should include user home dir.
+	home, err := os.UserHomeDir()
+	if err == nil {
+		found := false
+		for _, d := range dirs {
+			if d == filepath.Join(home, ".beads", "formulas") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected ~/.beads/formulas in search dirs, got %v", dirs)
+		}
+	}
+
+	// Empty town root should still include home dir.
+	dirs = FormulaSearchDirs("")
+	if len(dirs) < 1 {
+		t.Fatal("expected at least 1 search dir even with empty town root")
+	}
+	// First dir should be user home, not an empty path.
+	if dirs[0] == filepath.Join("", ".beads", "formulas") {
+		t.Error("empty town root should not produce empty-prefix path")
+	}
+}
+
 // TestGetEmbeddedFormulaContent verifies extraction of individual embedded formulas.
 func TestGetEmbeddedFormulaContent(t *testing.T) {
 	// Known embedded formula should succeed

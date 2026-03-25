@@ -60,6 +60,48 @@ func GetEmbeddedFormulaContent(name string) ([]byte, error) {
 	return content, nil
 }
 
+// GetFormulaContent returns the raw content of a formula by name, checking
+// the embedded FS first and falling back to on-disk search directories.
+// This allows custom formulas in ~/.beads/formulas/ (or other search paths)
+// to be loaded at runtime without being compiled into the binary.
+func GetFormulaContent(name string, searchDirs []string) ([]byte, error) {
+	// Try embedded first.
+	if content, err := GetEmbeddedFormulaContent(name); err == nil {
+		return content, nil
+	}
+
+	// Normalize the filename for disk search.
+	filename := name
+	if !hasFormulaSuffix(filename) {
+		filename = filename + ".formula.toml"
+	}
+
+	// Fall back to on-disk search paths.
+	for _, dir := range searchDirs {
+		path := filepath.Join(dir, filename)
+		if data, err := os.ReadFile(path); err == nil { //nolint:gosec // G304: path from controlled search dirs
+			return data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("formula %q not found in embedded FS or search paths %v", name, searchDirs)
+}
+
+// FormulaSearchDirs returns the standard formula search directories given
+// a town root. The order is:
+//  1. Town-level: <townRoot>/.beads/formulas/
+//  2. User-level: ~/.beads/formulas/
+func FormulaSearchDirs(townRoot string) []string {
+	var dirs []string
+	if townRoot != "" {
+		dirs = append(dirs, filepath.Join(townRoot, ".beads", "formulas"))
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		dirs = append(dirs, filepath.Join(home, ".beads", "formulas"))
+	}
+	return dirs
+}
+
 // hasFormulaSuffix checks if a name already has a formula file suffix.
 func hasFormulaSuffix(name string) bool {
 	return len(name) > len(".formula.toml") &&
