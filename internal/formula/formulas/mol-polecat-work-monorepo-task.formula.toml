@@ -1,8 +1,8 @@
 description = """
-Full polecat work lifecycle for the monorepo rig, with CI validation and AI review handling.
+Full polecat work lifecycle for standalone tasks against main, with CI validation and AI review handling.
 
-Extends the standard polecat work formula with monorepo-specific post-implementation
-steps: GitHub CI validation and AI review comment handling (CodeRabbit, Greptile).
+Each task becomes its own PR against main. Goes through GitHub Actions CI validation
+and AI review comment handling (CodeRabbit, Greptile) before human review.
 
 This molecule guides a polecat through a complete work assignment. Each step
 has clear entry/exit criteria and specific commands to run. A polecat can
@@ -28,9 +28,10 @@ branch (pre-verify step). This enables the refinery to fast-path merge your MR
 in ~5 seconds instead of re-running gates. If pre-verification is skipped or
 stale, the refinery falls through to normal gate execution.
 
-**Monorepo extras:** After implementation, you push a PR, wait for GitHub Actions
-CI to pass (fixing any failures), then wait for AI reviewers (CodeRabbit, Greptile)
-to post comments and address them all before submitting to the merge queue.
+**Task mode:** After implementation, you push a PR against main, wait for GitHub
+Actions CI to pass (fixing any failures), then wait for AI reviewers (CodeRabbit,
+Greptile) to post comments and address them all. The PR is the deliverable — a
+human engineer reviews and merges it.
 
 **You do NOT:**
 - Push directly to main (Refinery merges from MQ)
@@ -60,7 +61,7 @@ to post comments and address them all before submitting to the merge queue.
 | Blocked on external | Mail Witness for help, mark yourself stuck |
 | Context filling | Use gt handoff to cycle to fresh session |
 | Unsure what to do | Mail Witness, don't guess |"""
-formula = "mol-polecat-work-monorepo"
+formula = "mol-polecat-work-monorepo-task"
 version = 1
 
 [[steps]]
@@ -496,7 +497,7 @@ id = "submit-and-exit"
 title = "Submit work and self-clean"
 needs = ["handle-ai-reviews"]
 description = """
-Submit your work and clean up. Your behavior depends on your base branch.
+Submit your work and clean up. Your PR is the deliverable.
 
 **Pre-flight: Verify you have actual work to submit (HARD GATE):**
 ```bash
@@ -504,16 +505,13 @@ git log origin/{{base_branch}}..HEAD --oneline
 ```
 This MUST show at least 1 commit. If it shows nothing, do NOT run `gt done`.
 
-## Mode A: PR against main (base_branch = main)
-
-Your PR is the deliverable. A human teammate will review and merge it.
-CI is green, AI reviews are addressed — the PR is ready for human review.
-
+**1. Ensure latest changes are pushed:**
 ```bash
-# Ensure latest changes are pushed
 git push origin HEAD
+```
 
-# Exit without submitting to merge queue — the PR is the deliverable
+**2. Exit without submitting to merge queue — the PR is the deliverable:**
+```bash
 gt done --no-merge
 ```
 
@@ -521,48 +519,9 @@ gt done --no-merge
 - A human engineer reviews and merges the PR
 - You are done. The PR speaks for itself.
 
-## Mode B: Swarm into feature branch (base_branch != main)
-
-You are part of a swarm merging into a shared feature branch. The refinery
-manages the merge queue on that feature branch.
-
-**1. Rebase onto latest feature branch:**
-```bash
-git fetch origin {{base_branch}}
-git rebase origin/{{base_branch}}
-```
-
-If rebase conflicts: resolve carefully. If stuck, mail Witness.
-
-**2. Run the full gate suite on the rebased result (pre-verify):**
-
-If build_command is set: run {{build_command}}
-If typecheck_command is set: run {{typecheck_command}}
-If lint_command is set: run {{lint_command}}
-If test_command is set: run {{test_command}}
-
-Skip any empty/unconfigured commands silently.
-
-**3. If all gates pass, submit to merge queue:**
-```bash
-gt done --pre-verified --target {{base_branch}}
-```
-
-**4. If gates fail:** fix, commit, re-rebase, re-run gates. Do NOT submit broken code.
-
-**What happens next (not your concern):**
-- Refinery merges your work into {{base_branch}} (the feature branch)
-- Once all swarm work lands, a human opens a PR from the feature branch to main
-
-## How to decide which mode
-
-Check your base_branch variable:
-- If `{{base_branch}}` is `main` (or `master`) → **Mode A** (PR-only, `--no-merge`)
-- If `{{base_branch}}` is anything else → **Mode B** (merge queue, `--pre-verified`)
-
 You are GONE after `gt done`. Done means gone.
 
-**Exit criteria:** Work submitted (or PR left for review), sandbox nuked, session exited."""
+**Exit criteria:** PR pushed and ready for human review. Sandbox nuked, session exited."""
 
 [vars]
 [vars.issue]
@@ -570,7 +529,7 @@ description = "The issue ID assigned to this polecat"
 required = true
 
 [vars.base_branch]
-description = "The base branch to rebase on and compare against (e.g., main, integration/epic-id)"
+description = "The base branch to rebase on and compare against (default: main)"
 default = "main"
 
 [vars.setup_command]
