@@ -37,7 +37,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -415,9 +415,16 @@ func buildDoltSQLCmd(ctx context.Context, config *Config, args ...string) *exec.
 	// connections can trigger .doltcfg creation if CWD is uncontrolled.
 	cmd.Dir = config.DataDir
 
+	// Redirect temp files to real disk. Dolt client commands also create
+	// UUID-named temp files via the MovableTempFileProvider. Without this,
+	// they accumulate in /tmp (tmpfs) and exhaust inodes.
+	doltTmpDir := filepath.Join(config.DataDir, "tmp")
+	env := os.Environ()
+	env = append(env, "TMPDIR="+doltTmpDir)
 	if config.IsRemote() && config.Password != "" {
-		cmd.Env = append(os.Environ(), "DOLT_CLI_PASSWORD="+config.Password)
+		env = append(env, "DOLT_CLI_PASSWORD="+config.Password)
 	}
+	cmd.Env = env
 
 	return cmd
 }
@@ -1307,6 +1314,11 @@ behavior:
 func Start(townRoot string) error {
 	config := DefaultConfig(townRoot)
 
+	// Clean up leaked Dolt temp files from prior runs.
+	// Dolt's chunk store creates UUID-named 0-byte files that are never deleted.
+	// Purge them on start to reclaim disk space / inodes.
+	CleanDoltTmpDir(config.DataDir)
+
 	// Ensure daemon directory exists
 	daemonDir := filepath.Dir(config.LogFile)
 	if err := os.MkdirAll(daemonDir, 0755); err != nil {
@@ -1582,6 +1594,19 @@ func Start(townRoot string) error {
 	cmd.Dir = config.DataDir
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
+
+	// Redirect Dolt's temp files to real disk instead of tmpfs.
+	// Dolt's chunk store creates UUID-named temp files (~30/sec under load)
+	// that are never cleaned up. On tmpfs (/tmp) with a 1M inode cap, this
+	// exhausts inodes within ~16 hours and bricks all processes needing /tmp.
+	// Using a subdirectory of DataDir puts them on the real filesystem where
+	// inodes are effectively unlimited.
+	doltTmpDir := filepath.Join(config.DataDir, "tmp")
+	if err := os.MkdirAll(doltTmpDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create Dolt tmpdir %s: %v\n", doltTmpDir, err)
+	} else {
+		cmd.Env = append(os.Environ(), "TMPDIR="+doltTmpDir)
+	}
 
 	// Detach from terminal and put dolt in its own process group so that
 	// signals sent to the parent process group (e.g. SIGHUP when the caller
@@ -3613,6 +3638,45 @@ func MeasureQueryLatency(townRoot string) (time.Duration, error) {
 }
 
 // dirSize returns the total size of a directory tree in bytes.
+// uuidFilePattern matches UUID v4 filenames (e.g. "8c3107e0-4a00-4d61-80fb-9b1037346faa").
+var uuidFilePattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// CleanDoltTmpDir removes leaked UUID temp files from Dolt's tmp directory
+// and from /tmp (where older Dolt processes wrote them). Dolt's chunk store
+// creates 0-byte UUID files that are never cleaned up; over ~16h under load
+// this can exhaust tmpfs inodes and brick the machine.
+func CleanDoltTmpDir(dataDir string) {
+	dirs := []string{
+		filepath.Join(dataDir, "tmp"),
+		"/tmp",
+	}
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		removed := 0
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if !uuidFilePattern.MatchString(e.Name()) {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil || info.Size() != 0 {
+				continue
+			}
+			if os.Remove(filepath.Join(dir, e.Name())) == nil {
+				removed++
+			}
+		}
+		if removed > 0 {
+			fmt.Fprintf(os.Stderr, "Cleaned %d leaked Dolt temp files from %s\n", removed, dir)
+		}
+	}
+}
+
 func dirSize(path string) int64 {
 	var total int64
 	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {

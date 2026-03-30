@@ -818,6 +818,9 @@ func (m *DoltServerManager) startLocked() error {
 		return fmt.Errorf("creating data directory: %w", err)
 	}
 
+	// Clean leaked Dolt temp files from prior runs before starting.
+	doltserver.CleanDoltTmpDir(m.config.DataDir)
+
 	// Check if dolt is installed
 	doltPath, err := exec.LookPath("dolt")
 	if err != nil {
@@ -850,6 +853,16 @@ func (m *DoltServerManager) startLocked() error {
 	cmd.Dir = m.config.DataDir
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
+
+	// Redirect Dolt's temp files to real disk instead of tmpfs.
+	// Dolt's chunk store leaks UUID-named 0-byte temp files (~30/sec under load).
+	// On tmpfs with a 1M inode cap this exhausts inodes within ~16 hours.
+	doltTmpDir := filepath.Join(m.config.DataDir, "tmp")
+	if err := os.MkdirAll(doltTmpDir, 0755); err != nil {
+		m.logger("Warning: failed to create Dolt tmpdir %s: %v", doltTmpDir, err)
+	} else {
+		cmd.Env = append(os.Environ(), "TMPDIR="+doltTmpDir)
+	}
 
 	// Detach from this process group so it survives daemon restart
 	setSysProcAttr(cmd)
