@@ -857,7 +857,7 @@ func (m *DoltServerManager) startLocked() error {
 	// Redirect Dolt's temp files to real disk instead of tmpfs.
 	// Dolt's chunk store leaks UUID-named 0-byte temp files (~30/sec under load).
 	// On tmpfs with a 1M inode cap this exhausts inodes within ~16 hours.
-	doltTmpDir := filepath.Join(m.config.DataDir, "tmp")
+	doltTmpDir := filepath.Join(m.config.DataDir, ".tmp")
 	if err := os.MkdirAll(doltTmpDir, 0755); err != nil {
 		m.logger("Warning: failed to create Dolt tmpdir %s: %v", doltTmpDir, err)
 	} else {

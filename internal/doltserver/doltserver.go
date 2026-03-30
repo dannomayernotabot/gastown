@@ -418,7 +418,7 @@ func buildDoltSQLCmd(ctx context.Context, config *Config, args ...string) *exec.
 	// Redirect temp files to real disk. Dolt client commands also create
 	// UUID-named temp files via the MovableTempFileProvider. Without this,
 	// they accumulate in /tmp (tmpfs) and exhaust inodes.
-	doltTmpDir := filepath.Join(config.DataDir, "tmp")
+	doltTmpDir := filepath.Join(config.DataDir, ".tmp")
 	env := os.Environ()
 	env = append(env, "TMPDIR="+doltTmpDir)
 	if config.IsRemote() && config.Password != "" {
@@ -1601,7 +1601,7 @@ func Start(townRoot string) error {
 	// exhausts inodes within ~16 hours and bricks all processes needing /tmp.
 	// Using a subdirectory of DataDir puts them on the real filesystem where
 	// inodes are effectively unlimited.
-	doltTmpDir := filepath.Join(config.DataDir, "tmp")
+	doltTmpDir := filepath.Join(config.DataDir, ".tmp")
 	if err := os.MkdirAll(doltTmpDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to create Dolt tmpdir %s: %v\n", doltTmpDir, err)
 	} else {
@@ -3647,7 +3647,7 @@ var uuidFilePattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[
 // this can exhaust tmpfs inodes and brick the machine.
 func CleanDoltTmpDir(dataDir string) {
 	dirs := []string{
-		filepath.Join(dataDir, "tmp"),
+		filepath.Join(dataDir, ".tmp"),
 		"/tmp",
 	}
 	for _, dir := range dirs {
